@@ -280,11 +280,19 @@ function ajustarCamera() {
     const box = new THREE.Box3();
     for (const g of Object.values(modelos)) box.expandByObject(g);
     if (box.isEmpty()) return;
+
+    // Centraliza todos os grupos pelo mesmo offset — mantém posições relativas
     const center = box.getCenter(new THREE.Vector3());
-    const size   = box.getSize(new THREE.Vector3());
-    const dist   = Math.max(size.x, size.y, size.z) * 1.8;
-    camera.position.set(center.x + dist, center.y + dist * 0.6, center.z + dist);
-    controls.target.copy(center);
+    for (const g of Object.values(modelos)) g.position.sub(center);
+
+    // Recalcula bounding box após centralização
+    const box2 = new THREE.Box3();
+    for (const g of Object.values(modelos)) box2.expandByObject(g);
+    const size = box2.getSize(new THREE.Vector3());
+    const dist = Math.max(size.x, size.y, size.z) * 1.8;
+
+    camera.position.set(dist, dist * 0.6, dist);
+    controls.target.set(0, 0, 0);
     controls.update();
 }
 
