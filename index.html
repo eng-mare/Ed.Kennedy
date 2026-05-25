@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Edifício Kennedy — Visualizador BIM | Maré Engenharia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --azul-estrutural : #12223C;
+            --azul-fundacao   : #182A47;
+            --azul-mare       : #203864;
+            --azul-projeto    : #2F4C73;
+            --azul-tecnico    : #426B99;
+            --branco          : #FFFFFF;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { height:100%; font-family:'Lato',sans-serif; background:var(--azul-estrutural); color:var(--branco); overflow:hidden; }
+
+        header {
+            height:58px; background:var(--azul-fundacao);
+            border-bottom:2px solid var(--azul-tecnico);
+            display:flex; align-items:center; padding:0 20px; gap:14px; z-index:10; position:relative;
+        }
+        header img.logo { height:36px; object-fit:contain; }
+        .sep { width:1px; height:34px; background:var(--azul-projeto); margin:0 4px; }
+        .parceiro { display:flex; flex-direction:column; align-items:center; gap:3px; }
+        .parceiro-label { font-size:8px; font-weight:300; letter-spacing:2px; text-transform:uppercase; color:var(--azul-tecnico); }
+        .parceiro img { height:32px; object-fit:contain; }
+        .proj-info  { margin-left:auto; text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+        .proj-label { font-size:8px; font-weight:300; letter-spacing:2px; text-transform:uppercase; color:var(--azul-tecnico); }
+        .proj-nome  { font-size:13px; font-weight:700; letter-spacing:1.5px; }
+        .proj-cli   { font-size:10px; color:var(--azul-tecnico); font-weight:300; }
+
+        #layout { display:flex; height:calc(100% - 58px); }
+
+        #sidebar {
+            width:230px; background:var(--azul-fundacao);
+            border-right:1px solid var(--azul-projeto);
+            padding:18px 14px; display:flex; flex-direction:column; gap:7px; flex-shrink:0;
+        }
+        .sb-title { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--azul-tecnico); margin-bottom:4px; }
+        .disc-btn {
+            display:flex; align-items:center; gap:10px; padding:11px 13px;
+            border:1px solid var(--azul-projeto); border-radius:7px; background:transparent;
+            color:var(--branco); font-family:'Lato',sans-serif; font-size:13px;
+            cursor:pointer; transition:all .15s; width:100%; text-align:left;
+        }
+        .disc-btn:hover:not(:disabled) { background:var(--azul-mare); }
+        .disc-btn.on   { background:var(--azul-mare); border-color:var(--azul-tecnico); }
+        .disc-btn.off  { opacity:.35; }
+        .disc-btn.wait { opacity:.55; cursor:default; }
+        .dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+        .lbl { flex:1; }
+        .eye { font-size:13px; }
+        .divider { height:1px; background:var(--azul-projeto); margin:4px 0; }
+        .dica { margin-top:auto; padding:11px 12px; background:var(--azul-mare); border-radius:7px; font-size:10px; color:var(--azul-tecnico); line-height:1.85; }
+        .dica strong { display:block; color:var(--branco); font-size:10px; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:4px; }
+        .rodape { padding-top:12px; font-size:9px; color:var(--azul-projeto); text-align:center; letter-spacing:.5px; line-height:1.6; }
+
+        #viewer { flex:1; position:relative; overflow:hidden; }
+        #viewer canvas { display:block; width:100%!important; height:100%!important; outline:none; }
+
+        #overlay {
+            position:absolute; inset:0; background:#0d1b2e;
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:30;
+        }
+        #overlay.gone { display:none; }
+        .spinner { width:46px; height:46px; border:3px solid var(--azul-projeto); border-top-color:var(--azul-tecnico); border-radius:50%; animation:giro .8s linear infinite; }
+        @keyframes giro { to { transform:rotate(360deg); } }
+        #msg-load { font-size:12px; color:var(--azul-tecnico); letter-spacing:1.5px; font-weight:300; }
+
+        @media (max-width:620px) {
+            #sidebar { width:100%; height:auto; flex-direction:row; flex-wrap:wrap; padding:8px; border-right:none; border-bottom:1px solid var(--azul-projeto); gap:6px; }
+            .sb-title,.divider,.dica,.rodape { display:none; }
+            .disc-btn { flex:1; min-width:120px; padding:8px; }
+            #layout { flex-direction:column; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="parceiro">
+        <span class="parceiro-label">Projeto</span>
+        <img class="logo" src="logo.png" alt="Maré Engenharia" onerror="this.style.display='none'">
+    </div>
+    <div class="sep"></div>
+    <div class="proj-info">
+        <span class="proj-label">Visualizador BIM</span>
+        <div class="proj-nome">EDIFÍCIO KENNEDY</div>
+        <div class="proj-cli">Reforma Hidráulica — Barrilete Intermediário</div>
+    </div>
+</header>
+
+<div id="layout">
+    <div id="sidebar">
+        <div class="sb-title">Disciplinas</div>
+
+        <button class="disc-btn wait" id="btn-hid" onclick="tog('hid')" disabled>
+            <span class="dot" style="background:#4FC3F7"></span>
+            <span class="lbl">Hidráulico</span>
+            <span class="eye" id="eye-hid">👁</span>
+        </button>
+
+        <button class="disc-btn wait" id="btn-arq" onclick="tog('arq')" disabled>
+            <span class="dot" style="background:#B0BEC5"></span>
+            <span class="lbl">Arquitetônico</span>
+            <span class="eye" id="eye-arq">👁</span>
+        </button>
+
+        <div class="divider"></div>
+
+        <div class="dica">
+            <strong>Navegação 3D</strong>
+            🖱 Girar — arrastar (esq)<br>
+            🖱 Mover — arrastar (dir)<br>
+            🔲 Zoom — scroll / pinça<br>
+            📱 Mobile — dois dedos
+        </div>
+        <div class="rodape">Maré Engenharia<br>Eng.º Felipe Moreno — CREA 5071285180</div>
+    </div>
+
+    <div id="viewer"></div>
+</div>
+
+<div id="overlay">
+    <div class="spinner"></div>
+    <div id="msg-load">Iniciando visualizador…</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.155.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const setMsg = t => { document.getElementById('msg-load').textContent = t; console.log('[BIM]', t); };
+const setErr = t => {
+    const el = document.getElementById('msg-load');
+    el.textContent = '⚠ ' + t;
+    el.style.color = '#FF7043';
+    el.style.maxWidth = '360px';
+    el.style.textAlign = 'center';
+    el.style.lineHeight = '1.7';
+    el.style.fontSize = '11px';
+    console.error('[BIM] ERRO:', t);
+};
+
+setMsg('Carregando engine IFC…');
+
+let WebIFC;
+try {
+    WebIFC = await import('https://esm.sh/web-ifc@0.0.44');
+    if (!WebIFC.IfcAPI) throw new Error('IfcAPI não encontrado no módulo');
+} catch(e) {
+    setErr('Falha ao carregar web-ifc\n' + e.message); throw e;
+}
+
+// ── Cena Three.js ────────────────────────────────────────────────────────────
+const container = document.getElementById('viewer');
+const W = () => container.clientWidth;
+const H = () => container.clientHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(W(), H());
+renderer.setClearColor(0x0d1b2e);
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, W()/H(), 0.01, 5000);
+camera.position.set(15, 10, 15);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+const sol = new THREE.DirectionalLight(0xffffff, 1.0);
+sol.position.set(10, 20, 10);
+scene.add(sol);
+const fill = new THREE.DirectionalLight(0x426B99, 0.4);
+fill.position.set(-10, 5, -10);
+scene.add(fill);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.screenSpacePanning = true;
+
+// ── WASM ─────────────────────────────────────────────────────────────────────
+setMsg('Iniciando WASM…');
+const ifcApi = new WebIFC.IfcAPI();
+ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.44/');
+try {
+    await ifcApi.Init();
+} catch(e) {
+    setErr('Falha ao iniciar WASM\n' + e.message); throw e;
+}
+
+// ── Resolução de caminho (raiz ou models/, .ifc ou .ifc.gz) ──────────────────
+async function resolverCaminho(nome) {
+    for (const prefixo of ['models/', '']) {
+        for (const sufixo of ['', '.gz']) {
+            const url = prefixo + nome + sufixo;
+            try { const r = await fetch(url, { method: 'HEAD' }); if (r.ok) return url; } catch (_) {}
+        }
+    }
+    return null;
+}
+
+async function fetchIFC(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (url.endsWith('.gz')) {
+        const arr = await new Response(
+            resp.body.pipeThrough(new DecompressionStream('gzip'))
+        ).arrayBuffer();
+        return new Uint8Array(arr);
+    }
+    return new Uint8Array(await resp.arrayBuffer());
+}
+
+// ── Geometria IFC → Three.js ─────────────────────────────────────────────────
+function ifcParaGrupo(modelID) {
+    const grupo = new THREE.Group();
+    ifcApi.StreamAllMeshes(modelID, mesh => {
+        const geoms = mesh.geometries;
+        for (let i = 0; i < geoms.size(); i++) {
+            const pg = geoms.get(i);
+            const gd = ifcApi.GetGeometry(modelID, pg.geometryExpressID);
+            const verts   = ifcApi.GetVertexArray(gd.GetVertexData(), gd.GetVertexDataSize());
+            const indices = ifcApi.GetIndexArray(gd.GetIndexData(), gd.GetIndexDataSize());
+
+            const pos = new Float32Array(verts.length / 2);
+            const nor = new Float32Array(verts.length / 2);
+            for (let j = 0; j < verts.length; j += 6) {
+                const b = (j / 6) * 3;
+                pos[b] = verts[j];   pos[b+1] = verts[j+1]; pos[b+2] = verts[j+2];
+                nor[b] = verts[j+3]; nor[b+1] = verts[j+4]; nor[b+2] = verts[j+5];
+            }
+
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geom.setAttribute('normal',   new THREE.BufferAttribute(nor, 3));
+            geom.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+
+            const c = pg.color;
+            const mat = new THREE.MeshLambertMaterial({
+                color: new THREE.Color(c.x, c.y, c.z),
+                transparent: c.w < 0.99,
+                opacity: c.w,
+                side: THREE.DoubleSide
+            });
+
+            const m3d = new THREE.Mesh(geom, mat);
+            m3d.applyMatrix4(new THREE.Matrix4().fromArray(pg.flatTransformation));
+            grupo.add(m3d);
+            gd.delete();
+        }
+    });
+    return grupo;
+}
+
+// ── Disciplinas ───────────────────────────────────────────────────────────────
+// Renomeie os arquivos IFC conforme necessário e atualize aqui
+const DISCS = {
+    hid: { nome: 'KENN-HID-DC-0001-MODE-R00.ifc', label: 'Hidráulico'    },
+    arq: { nome: 'KENN-ARQ-DC-0001-MODE-R00.ifc', label: 'Arquitetônico' },
+};
+
+const modelos = {};
+const visivel = {};
+let carregados = 0;
+const total = Object.keys(DISCS).length;
+
+function ajustarCamera() {
+    const box = new THREE.Box3();
+    for (const g of Object.values(modelos)) box.expandByObject(g);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new THREE.Vector3());
+    const size   = box.getSize(new THREE.Vector3());
+    const dist   = Math.max(size.x, size.y, size.z) * 1.8;
+    camera.position.set(center.x + dist, center.y + dist * 0.6, center.z + dist);
+    controls.target.copy(center);
+    controls.update();
+}
+
+function concluir(id) {
+    carregados++;
+    if (carregados >= total) {
+        document.getElementById('overlay').classList.add('gone');
+        ajustarCamera();
+    }
+}
+
+function marcarFalha(id, msg) {
+    const btn = document.getElementById(`btn-${id}`);
+    btn.classList.remove('wait');
+    btn.disabled = true;
+    btn.style.opacity = '0.25';
+    btn.title = msg;
+    console.warn(`[BIM] ${id} falhou: ${msg}`);
+    concluir(id);
+}
+
+async function carregar(id, cfg) {
+    setMsg(`Localizando ${cfg.label}…`);
+    const caminho = await resolverCaminho(cfg.nome);
+    if (!caminho) { marcarFalha(id, 'Arquivo não encontrado no servidor'); return; }
+
+    setMsg(`Baixando ${cfg.label}…`);
+    let data;
+    try { data = await fetchIFC(caminho); }
+    catch(e) { marcarFalha(id, 'Download: ' + e.message); return; }
+
+    setMsg(`Processando ${cfg.label}…`);
+    try {
+        const modelID = ifcApi.OpenModel(data);
+        const grupo = ifcParaGrupo(modelID);
+        ifcApi.CloseModel(modelID);
+
+        modelos[id] = grupo;
+        visivel[id] = true;
+        scene.add(grupo);
+
+        const btn = document.getElementById(`btn-${id}`);
+        btn.classList.remove('wait'); btn.classList.add('on'); btn.disabled = false;
+        console.log(`[BIM] ${cfg.label} ✓`);
+        concluir(id);
+    } catch(e) { marcarFalha(id, 'Parse: ' + e.message); }
+}
+
+window.tog = function(id) {
+    if (!modelos[id]) return;
+    visivel[id] = !visivel[id];
+    modelos[id].visible = visivel[id];
+    document.getElementById(`btn-${id}`).classList.toggle('on',  visivel[id]);
+    document.getElementById(`btn-${id}`).classList.toggle('off', !visivel[id]);
+    document.getElementById(`eye-${id}`).textContent = visivel[id] ? '👁' : '🚫';
+};
+
+for (const [id, cfg] of Object.entries(DISCS)) carregar(id, cfg);
+
+(function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+
+new ResizeObserver(() => {
+    camera.aspect = W() / H();
+    camera.updateProjectionMatrix();
+    renderer.setSize(W(), H());
+}).observe(container);
+</script>
+</body>
+</html>
