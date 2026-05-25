@@ -62,13 +62,13 @@
         #viewer canvas { display:block; width:100%!important; height:100%!important; outline:none; }
 
         #overlay {
-            position:absolute; inset:0; background:#0d1b2e;
+            position:absolute; inset:0; background:#ffffff;
             display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:30;
         }
         #overlay.gone { display:none; }
         .spinner { width:46px; height:46px; border:3px solid var(--azul-projeto); border-top-color:var(--azul-tecnico); border-radius:50%; animation:giro .8s linear infinite; }
         @keyframes giro { to { transform:rotate(360deg); } }
-        #msg-load { font-size:12px; color:var(--azul-tecnico); letter-spacing:1.5px; font-weight:300; }
+        #msg-load { font-size:12px; color:var(--azul-projeto); letter-spacing:1.5px; font-weight:300; }
 
         @media (max-width:620px) {
             #sidebar { width:100%; height:auto; flex-direction:row; flex-wrap:wrap; padding:8px; border-right:none; border-bottom:1px solid var(--azul-projeto); gap:6px; }
@@ -82,7 +82,6 @@
 
 <header>
     <div class="parceiro">
-        <span class="parceiro-label">Projeto</span>
         <img class="logo" src="logo.png" alt="Maré Engenharia" onerror="this.style.display='none'">
     </div>
     <div class="sep"></div>
@@ -171,7 +170,7 @@ const H = () => container.clientHeight;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(W(), H());
-renderer.setClearColor(0x0d1b2e);
+renderer.setClearColor(0xffffff);
 container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
